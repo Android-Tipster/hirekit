@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import anthropic
+from json_repair import repair_json
 
 
 PROMPT_TEMPLATE = """You are a senior hiring consultant and organizational psychologist. Create a rigorous, specific interview kit.
@@ -111,7 +112,11 @@ class handler(BaseHTTPRequestHandler):
                 if raw.startswith("json"):
                     raw = raw[4:]
 
-            kit = json.loads(raw)
+            try:
+                kit = json.loads(raw)
+            except json.JSONDecodeError:
+                # LLMs occasionally produce slightly malformed JSON; repair it
+                kit = json.loads(repair_json(raw))
             self._json(200, kit)
 
         except anthropic.AuthenticationError:
