@@ -1,4 +1,3 @@
-anthropic>=0.25.0
-streamlit>=1.32.0
-reportlab>=4.0.0
-pandas>=2.0.0
+# Root requirements.txt intentionally minimal.
+# The API function uses api/requirements.txt (anthropic only).
+# For running the Streamlit local version, use: pip install streamlit reportlab pandas anthropic
