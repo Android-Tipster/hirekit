@@ -1,0 +1,9 @@
+{
+  "builds": [
+    { "src": "api/generate.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/api/generate", "dest": "api/generate.py" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}

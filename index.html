@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HireKit — AI Interview Kit Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --purple: #4f46e5;
+    --purple-light: #ede9fe;
+    --dark: #1a1a2e;
+    --muted: #6b7280;
+    --border: #e2e8f0;
+    --bg: #f8f9fa;
+    --red: #dc2626;
+    --green: #16a34a;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--dark); background: #fff; }
+  a { color: var(--purple); }
+
+  /* ── Layout ── */
+  .page { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header { margin-bottom: 2rem; }
+  header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; }
+  header h1 span { color: var(--purple); }
+  header p { color: var(--muted); margin-top: 0.4rem; font-size: 1.05rem; }
+
+  /* ── Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 0.82rem; font-weight: 600; color: var(--dark); text-transform: uppercase; letter-spacing: 0.04em; }
+  input, select, textarea {
+    border: 1.5px solid var(--border); border-radius: 8px; padding: 0.65rem 0.9rem;
+    font-size: 0.95rem; font-family: inherit; color: var(--dark); background: #fff;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); }
+  textarea { resize: vertical; min-height: 160px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  .api-wrap { position: relative; }
+  .api-wrap input { padding-right: 2.5rem; }
+  .eye-btn { position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1rem; }
+  .api-note { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
+
+  /* ── Button ── */
+  .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: var(--purple); color: #fff; width: 100%; justify-content: center; margin-top: 1.25rem; font-size: 1rem; padding: 0.9rem; }
+  .btn-primary:hover:not(:disabled) { background: #4338ca; }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-secondary { background: var(--bg); color: var(--dark); border: 1.5px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-pdf { background: var(--dark); color: #fff; margin-top: 1rem; }
+  .btn-pdf:hover { background: #2d2d44; }
+
+  /* ── Spinner ── */
+  .spinner { display: none; text-align: center; padding: 2rem; color: var(--muted); }
+  .spinner.active { display: block; }
+  .dot-anim::after { content: ''; animation: dots 1.5s infinite; }
+  @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} 100%{content:'.'} }
+
+  /* ── Error ── */
+  .error-box { background: #fef2f2; border: 1px solid #fecaca; color: var(--red); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 1rem; font-size: 0.9rem; display: none; }
+  .error-box.active { display: block; }
+
+  /* ── Kit Output ── */
+  #output { margin-top: 2.5rem; display: none; }
+  #output.active { display: block; }
+  .kit-header { border-bottom: 2px solid var(--purple); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+  .kit-title { font-size: 1.6rem; font-weight: 800; }
+  .kit-meta { color: var(--muted); font-size: 0.88rem; margin-top: 0.25rem; }
+  .output-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+
+  /* ── Sections ── */
+  .section { margin-bottom: 2rem; }
+  .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--purple); margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1.5px solid var(--purple-light); }
+  .summary-box { background: var(--bg); border-left: 4px solid var(--purple); padding: 0.9rem 1.1rem; border-radius: 0 8px 8px 0; line-height: 1.6; }
+
+  /* ── Competencies ── */
+  .comp-card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+  .comp-name { font-weight: 700; margin-bottom: 0.25rem; }
+  .comp-desc { font-size: 0.88rem; color: var(--muted); margin-bottom: 0.75rem; }
+  .rubric { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
+  .rubric-cell { padding: 0.6rem; border-radius: 6px; font-size: 0.82rem; }
+  .rubric-cell.poor { background: #fef2f2; }
+  .rubric-cell.ok { background: var(--bg); }
+  .rubric-cell.strong { background: #f0fdf4; }
+  .rubric-label { font-weight: 700; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.2rem; }
+  .rubric-label.poor { color: var(--red); }
+  .rubric-label.ok { color: var(--muted); }
+  .rubric-label.strong { color: var(--green); }
+
+  /* ── Questions ── */
+  .q-card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+  .q-num { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .q-text { font-weight: 600; margin: 0.35rem 0 0.6rem; line-height: 1.5; }
+  .q-tag { display: inline-block; background: var(--purple-light); color: var(--purple); padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .q-meta { font-size: 0.85rem; line-height: 1.5; }
+  .listen { color: var(--green); }
+  .redflag { color: var(--red); }
+  .q-answer { font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; line-height: 1.5; }
+
+  /* ── Dealbreakers ── */
+  .dealbreaker { font-size: 0.9rem; color: var(--red); padding: 0.5rem 0; border-bottom: 1px solid #fecaca; line-height: 1.5; }
+  .dealbreaker:last-child { border-bottom: none; }
+  .dealbreaker::before { content: ''; margin-right: 0.5rem; }
+
+  /* ── Table ── */
+  .matrix-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .matrix-table th { background: var(--purple-light); color: var(--purple); font-weight: 700; text-align: left; padding: 0.6rem 0.75rem; border: 1px solid var(--border); }
+  .matrix-table td { padding: 0.55rem 0.75rem; border: 1px solid var(--border); }
+  .matrix-table tr:nth-child(even) td { background: var(--bg); }
+
+  /* ── Milestones ── */
+  .milestone { padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; line-height: 1.5; }
+  .milestone:last-child { border-bottom: none; }
+  .milestone strong { color: var(--purple); }
+
+  /* ── Accordion ── */
+  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+  details summary { padding: 0.85rem 1rem; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: '+'; color: var(--purple); font-size: 1.2rem; }
+  details[open] summary::after { content: '−'; }
+  details > div { padding: 0 1rem 1rem; }
+
+  /* ── Footer ── */
+  .footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+
+  @media (max-width: 600px) {
+    .form-grid, .row2, .rubric { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <h1><span>Hire</span>Kit</h1>
+    <p>Paste a job description. Get a complete interviewer kit in 30 seconds.</p>
+  </header>
+
+  <!-- Form -->
+  <form id="form">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Job Title *</label>
+        <input type="text" id="jobTitle" placeholder="e.g. Senior Product Manager" required />
+      </div>
+      <div class="form-group">
+        <label>Company Context</label>
+        <input type="text" id="companyContext" placeholder="e.g. 30-person SaaS, Series A, remote-first" />
+      </div>
+      <div class="form-group full">
+        <label>Job Description</label>
+        <textarea id="jobDesc" placeholder="Paste the full job description here. The more detail you provide, the more specific the kit will be. No JD? Just describe the role in a few sentences."></textarea>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="form-group">
+        <label>Role Level</label>
+        <select id="roleLevel">
+          <option>Junior (0-2 yrs)</option>
+          <option selected>Mid-Level (2-5 yrs)</option>
+          <option>Senior (5-10 yrs)</option>
+          <option>Principal / Staff</option>
+          <option>Director / VP</option>
+          <option>Executive / C-Suite</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Industry</label>
+        <select id="industry">
+          <option selected>SaaS / Tech</option>
+          <option>E-commerce / Retail</option>
+          <option>Healthcare</option>
+          <option>Finance / Fintech</option>
+          <option>Agency / Services</option>
+          <option>Manufacturing / Operations</option>
+          <option>Education</option>
+          <option>Non-profit</option>
+          <option>Media / Entertainment</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:1rem">
+      <label>Anthropic API Key *</label>
+      <div class="api-wrap">
+        <input type="password" id="apiKey" placeholder="sk-ant-api03-..." required />
+        <button type="button" class="eye-btn" id="eyeBtn" title="Show/hide key">&#128065;</button>
+      </div>
+      <span class="api-note">Your key is sent directly to the Anthropic API. Never stored. Get one at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>.</span>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="generateBtn">Generate Interview Kit</button>
+  </form>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="spinner" id="spinner"><span class="dot-anim">Generating your interview kit</span></div>
+
+  <!-- Output -->
+  <div id="output">
+    <div class="kit-header">
+      <div class="kit-title" id="kitTitle"></div>
+      <div class="kit-meta" id="kitMeta"></div>
+      <div class="output-actions">
+        <button class="btn btn-pdf" onclick="downloadPDF()">Download as PDF</button>
+        <button class="btn btn-secondary" onclick="window.print()">Print</button>
+      </div>
+    </div>
+    <div id="kitContent"></div>
+  </div>
+
+  <div class="footer">
+    HireKit &middot; Powered by Claude Haiku &middot; <a href="https://github.com/Android-Tipster/hirekit" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</div>
+
+<script>
+// ── Eye toggle ──────────────────────────────────────────────────────────────
+document.getElementById('eyeBtn').addEventListener('click', () => {
+  const inp = document.getElementById('apiKey');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+});
+
+// ── Form submit ─────────────────────────────────────────────────────────────
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('generateBtn');
+  const spinner = document.getElementById('spinner');
+  const errBox = document.getElementById('errorBox');
+  const output = document.getElementById('output');
+
+  btn.disabled = true;
+  spinner.classList.add('active');
+  errBox.classList.remove('active');
+  output.classList.remove('active');
+
+  try {
+    const payload = {
+      api_key: document.getElementById('apiKey').value.trim(),
+      job_title: document.getElementById('jobTitle').value.trim(),
+      job_description: document.getElementById('jobDesc').value.trim(),
+      company_context: document.getElementById('companyContext').value.trim(),
+      role_level: document.getElementById('roleLevel').value,
+      industry: document.getElementById('industry').value,
+      num_behavioral: 12,
+      num_technical: 5
+    };
+
+    const resp = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Generation failed');
+
+    window._kit = data;
+    window._meta = { title: payload.job_title, level: payload.role_level, industry: payload.industry };
+    renderKit(data, payload.job_title, payload.role_level, payload.industry);
+    output.classList.add('active');
+    output.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.add('active');
+  } finally {
+    btn.disabled = false;
+    spinner.classList.remove('active');
+  }
+});
+
+// ── Render ──────────────────────────────────────────────────────────────────
+function renderKit(kit, title, level, industry) {
+  document.getElementById('kitTitle').textContent = `Interview Kit: ${title}`;
+  document.getElementById('kitMeta').textContent = `${level} · ${industry} · Generated ${new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'})}`;
+
+  const content = document.getElementById('kitContent');
+  content.innerHTML = '';
+
+  // Role Summary
+  content.innerHTML += `
+    <div class="section">
+      <div class="section-title">Role Overview</div>
+      <div class="summary-box">${esc(kit.role_summary)}</div>
+    </div>`;
+
+  // Competencies
+  let compHtml = '<div class="section"><div class="section-title">Competency Framework</div>';
+  for (const c of kit.key_competencies || []) {
+    compHtml += `<div class="comp-card">
+      <div class="comp-name">${esc(c.name)}</div>
+      <div class="comp-desc">${esc(c.description)}</div>
+      <div class="rubric">
+        <div class="rubric-cell poor"><div class="rubric-label poor">1 — Poor</div>${esc(c.scoring_guide?.['1'] || '')}</div>
+        <div class="rubric-cell ok"><div class="rubric-label ok">3 — Acceptable</div>${esc(c.scoring_guide?.['3'] || '')}</div>
+        <div class="rubric-cell strong"><div class="rubric-label strong">5 — Strong</div>${esc(c.scoring_guide?.['5'] || '')}</div>
+      </div>
+    </div>`;
+  }
+  compHtml += '</div>';
+  content.innerHTML += compHtml;
+
+  // Behavioral Questions (in accordion)
+  const bqs = kit.behavioral_questions || [];
+  let bHtml = `<div class="section"><div class="section-title">Behavioral Questions (${bqs.length})</div>`;
+  bqs.forEach((q, i) => {
+    bHtml += `<div class="q-card">
+      <div class="q-num">Question ${i+1}</div>
+      <div class="q-text">${esc(q.question)}</div>
+      <span class="q-tag">${esc(q.competency_tested)}</span>
+      <div class="q-meta">
+        <div class="listen">Listen for: ${esc(q.what_to_listen_for)}</div>
+        <div class="redflag">Red flag: ${esc(q.red_flags)}</div>
+      </div>
+    </div>`;
+  });
+  bHtml += '</div>';
+  content.innerHTML += bHtml;
+
+  // Technical Questions
+  const tqs = kit.technical_questions || [];
+  let tHtml = `<div class="section"><div class="section-title">Technical Questions (${tqs.length})</div>`;
+  tqs.forEach((q, i) => {
+    tHtml += `<div class="q-card">
+      <div class="q-num">Question ${i+1}</div>
+      <div class="q-text">${esc(q.question)}</div>
+      <div class="q-answer">Strong answer includes: ${esc(q.what_strong_answer_includes)}</div>
+    </div>`;
+  });
+  tHtml += '</div>';
+  content.innerHTML += tHtml;
+
+  // Dealbreakers
+  const db = kit.dealbreaker_signals || [];
+  let dbHtml = `<div class="section"><div class="section-title">Dealbreaker Signals</div>
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">If you observe any of the following, do not proceed to offer.</p>`;
+  for (const s of db) {
+    dbHtml += `<div class="dealbreaker">${esc(s)}</div>`;
+  }
+  dbHtml += '</div>';
+  content.innerHTML += dbHtml;
+
+  // Comparison Matrix
+  const criteria = kit.candidate_comparison_criteria || [];
+  let matHtml = `<div class="section"><div class="section-title">Candidate Comparison Matrix</div>
+    <table class="matrix-table">
+      <thead><tr><th>Criterion</th><th>Candidate A</th><th>Candidate B</th><th>Candidate C</th></tr></thead>
+      <tbody>`;
+  for (const c of criteria) {
+    matHtml += `<tr><td>${esc(c)}</td><td></td><td></td><td></td></tr>`;
+  }
+  matHtml += `<tr><td><strong>TOTAL / DECISION</strong></td><td></td><td></td><td></td></tr>
+    </tbody></table></div>`;
+  content.innerHTML += matHtml;
+
+  // Onboarding
+  const on = kit.onboarding_milestones || [];
+  let onHtml = `<div class="section"><div class="section-title">Onboarding Milestones (If Hired)</div>`;
+  for (const m of on) {
+    const parts = m.split(':');
+    const label = parts[0];
+    const rest = parts.slice(1).join(':').trim();
+    onHtml += `<div class="milestone"><strong>${esc(label)}:</strong> ${esc(rest)}</div>`;
+  }
+  onHtml += '</div>';
+  content.innerHTML += onHtml;
+}
+
+// ── PDF Download ─────────────────────────────────────────────────────────────
+function downloadPDF() {
+  if (!window._kit) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+  const kit = window._kit;
+  const { title, level, industry } = window._meta;
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+
+  const PURPLE = [79, 70, 229];
+  const DARK = [26, 26, 46];
+  const MUTED = [107, 114, 128];
+  const RED = [220, 38, 38];
+  const GREEN = [22, 163, 74];
+  const LIGHT_PURPLE = [237, 233, 254];
+
+  const margin = 15;
+  const pageW = 210;
+  const contentW = pageW - margin * 2;
+  let y = 20;
+
+  const checkPage = (needed = 15) => {
+    if (y + needed > 277) { doc.addPage(); y = 20; }
+  };
+
+  const addSection = (label) => {
+    checkPage(12);
+    doc.setFillColor(...LIGHT_PURPLE);
+    doc.rect(margin, y, contentW, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...PURPLE);
+    doc.text(label.toUpperCase(), margin + 3, y + 5);
+    y += 11;
+  };
+
+  // Cover
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...PURPLE);
+  doc.text('INTERVIEW KIT', margin, y);
+  y += 6;
+  doc.setFontSize(22);
+  doc.setTextColor(...DARK);
+  doc.text(title, margin, y);
+  y += 7;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED);
+  doc.text(`${level}  ·  ${industry}  ·  ${today}`, margin, y);
+  y += 4;
+  doc.setDrawColor(...PURPLE);
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, margin + contentW, y);
+  y += 10;
+
+  // Role Summary
+  addSection('Role Overview');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...DARK);
+  const summaryLines = doc.splitTextToSize(kit.role_summary, contentW);
+  checkPage(summaryLines.length * 5 + 4);
+  doc.text(summaryLines, margin, y);
+  y += summaryLines.length * 5 + 8;
+
+  // Competencies
+  addSection(`Competency Framework (${kit.key_competencies.length})`);
+  for (const comp of kit.key_competencies) {
+    checkPage(35);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...DARK);
+    doc.text(comp.name, margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...MUTED);
+    const descLines = doc.splitTextToSize(comp.description, contentW);
+    doc.text(descLines, margin, y);
+    y += descLines.length * 4 + 3;
+    const sg = comp.scoring_guide || {};
+    const rubricData = [
+      ['1 — Poor', sg['1'] || ''],
+      ['3 — Acceptable', sg['3'] || ''],
+      ['5 — Strong', sg['5'] || '']
+    ];
+    doc.autoTable({
+      startY: y,
+      head: [['Score', 'Observable Behavior']],
+      body: rubricData,
+      margin: { left: margin },
+      tableWidth: contentW,
+      columnStyles: { 0: { cellWidth: 28 }, 1: { cellWidth: contentW - 28 } },
+      styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
+      headStyles: { fillColor: LIGHT_PURPLE, textColor: PURPLE, fontStyle: 'bold', fontSize: 7.5 },
+      didParseCell: (d) => {
+        if (d.section === 'body') {
+          if (d.row.index === 0) d.cell.styles.textColor = RED;
+          if (d.row.index === 2) d.cell.styles.textColor = GREEN;
+        }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  doc.addPage(); y = 20;
+
+  // Behavioral Questions
+  addSection(`Behavioral Questions (${kit.behavioral_questions.length})`);
+  kit.behavioral_questions.forEach((q, i) => {
+    checkPage(25);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    const qLines = doc.splitTextToSize(`Q${i+1}: ${q.question}`, contentW);
+    doc.text(qLines, margin, y);
+    y += qLines.length * 4.5 + 2;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...PURPLE);
+    doc.text(q.competency_tested, margin, y);
+    y += 4.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GREEN);
+    const listenLines = doc.splitTextToSize(`Listen for: ${q.what_to_listen_for}`, contentW);
+    checkPage(listenLines.length * 4 + 4);
+    doc.text(listenLines, margin, y);
+    y += listenLines.length * 4 + 2;
+    doc.setTextColor(...RED);
+    const flagLines = doc.splitTextToSize(`Red flag: ${q.red_flags}`, contentW);
+    checkPage(flagLines.length * 4 + 6);
+    doc.text(flagLines, margin, y);
+    y += flagLines.length * 4 + 7;
+  });
+
+  doc.addPage(); y = 20;
+
+  // Technical Questions
+  addSection(`Technical Questions (${kit.technical_questions.length})`);
+  kit.technical_questions.forEach((q, i) => {
+    checkPage(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    const qLines = doc.splitTextToSize(`Q${i+1}: ${q.question}`, contentW);
+    doc.text(qLines, margin, y);
+    y += qLines.length * 4.5 + 2;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...MUTED);
+    const ansLines = doc.splitTextToSize(`Strong answer includes: ${q.what_strong_answer_includes}`, contentW);
+    checkPage(ansLines.length * 4 + 6);
+    doc.text(ansLines, margin, y);
+    y += ansLines.length * 4 + 7;
+  });
+
+  // Dealbreakers
+  addSection('Dealbreaker Signals');
+  for (const s of kit.dealbreaker_signals) {
+    checkPage(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...RED);
+    const lines = doc.splitTextToSize(`  ${s}`, contentW);
+    doc.text(lines, margin, y);
+    y += lines.length * 4.5 + 2;
+  }
+  y += 4;
+
+  // Comparison Matrix
+  addSection('Candidate Comparison Matrix');
+  checkPage(10);
+  doc.autoTable({
+    startY: y,
+    head: [['Criterion', 'Candidate A', 'Candidate B', 'Candidate C']],
+    body: [...kit.candidate_comparison_criteria.map(c => [c,'','','']), ['TOTAL / DECISION','','','']],
+    margin: { left: margin },
+    tableWidth: contentW,
+    columnStyles: { 0: { cellWidth: 80 } },
+    styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
+    headStyles: { fillColor: LIGHT_PURPLE, textColor: PURPLE, fontStyle: 'bold', fontSize: 7.5 },
+    didParseCell: (d) => {
+      if (d.section === 'body' && d.row.index === kit.candidate_comparison_criteria.length) {
+        d.cell.styles.fontStyle = 'bold';
+        d.cell.styles.fillColor = [241, 245, 249];
+      }
+    }
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Onboarding
+  checkPage(20);
+  addSection('Onboarding Milestones (If Hired)');
+  for (const m of kit.onboarding_milestones) {
+    checkPage(8);
+    const parts = m.split(':');
+    const label = parts[0];
+    const rest = parts.slice(1).join(':').trim();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...PURPLE);
+    doc.text(label + ':', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...DARK);
+    const restLines = doc.splitTextToSize(rest, contentW - 28);
+    doc.text(restLines, margin + 28, y);
+    y += Math.max(restLines.length * 4.5, 4.5) + 3;
+  }
+
+  // Footer on each page
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text(`Generated by HireKit · hirekit.vercel.app`, margin, 290);
+    doc.text(`Page ${i} of ${pageCount}`, pageW - margin, 290, { align: 'right' });
+  }
+
+  const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  doc.save(`hirekit-${slug}-${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+// ── Utils ────────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
